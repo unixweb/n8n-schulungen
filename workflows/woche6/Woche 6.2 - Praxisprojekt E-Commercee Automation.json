@@ -1,0 +1,393 @@
+{
+  "name": "Woche 6.2 - Praxisprojekt E-Commercee Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "neuer-mitarbeiter",
+        "options": {}
+      },
+      "id": "52b6d43d-da21-4edf-974a-516dba1aca1e",
+      "name": "Neuer Mitarbeiter Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1536,
+        112
+      ],
+      "webhookId": "onboarding-webhook-abc"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ma-1",
+              "name": "vorname",
+              "value": "={{ $json.body.vorname }}",
+              "type": "string"
+            },
+            {
+              "id": "ma-2",
+              "name": "nachname",
+              "value": "={{ $json.body.nachname }}",
+              "type": "string"
+            },
+            {
+              "id": "ma-3",
+              "name": "email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "ma-4",
+              "name": "abteilung",
+              "value": "={{ $json.body.abteilung }}",
+              "type": "string"
+            },
+            {
+              "id": "ma-5",
+              "name": "startdatum",
+              "value": "={{ $json.body.startdatum }}",
+              "type": "string"
+            },
+            {
+              "id": "ma-6",
+              "name": "position",
+              "value": "={{ $json.body.position }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d5d73510-fd1b-4b77-af72-db4c44974bc4",
+      "name": "Mitarbeiter-Daten",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        -1328,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO mitarbeiter (\n  vorname,\n  nachname,\n  email,\n  abteilung,\n  position,\n  startdatum,\n  status,\n  erstellt_am\n) VALUES (\n  '{{ $json.vorname }}',\n  '{{ $json.nachname }}',\n  '{{ $json.email }}',\n  '{{ $json.abteilung }}',\n  '{{ $json.position }}',\n  '{{ $json.startdatum }}',\n  'onboarding',\n  NOW()\n)\nRETURNING *",
+        "options": {}
+      },
+      "id": "cdb253c0-b971-44ca-80c8-3e9f0221f6b7",
+      "name": "Mitarbeiter in DB anlegen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -1104,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Onboarding-Tasks für neuen Mitarbeiter generieren\nconst mitarbeiter = $input.first().json;\n\nconst tasks = [\n  {\n    titel: 'E-Mail-Account einrichten',\n    verantwortlich: 'IT',\n    prioritaet: 'hoch',\n    frist_tage: 3\n  },\n  {\n    titel: 'Hardware bereitstellen (Laptop, Monitor)',\n    verantwortlich: 'IT',\n    prioritaet: 'hoch',\n    frist_tage: 5\n  },\n  {\n    titel: 'Arbeitsplatz vorbereiten',\n    verantwortlich: 'Facility',\n    prioritaet: 'mittel',\n    frist_tage: 7\n  },\n  {\n    titel: 'Zugänge zu Systemen einrichten',\n    verantwortlich: 'IT',\n    prioritaet: 'hoch',\n    frist_tage: 3\n  },\n  {\n    titel: 'Onboarding-Buddy zuweisen',\n    verantwortlich: 'HR',\n    prioritaet: 'mittel',\n    frist_tage: 5\n  },\n  {\n    titel: 'Welcome-Package vorbereiten',\n    verantwortlich: 'HR',\n    prioritaet: 'niedrig',\n    frist_tage: 7\n  }\n];\n\n// Für jede Task ein Item erstellen\nconst taskItems = tasks.map(task => {\n  const fristDatum = new Date();\n  fristDatum.setDate(fristDatum.getDate() + task.frist_tage);\n  \n  return {\n    json: {\n      mitarbeiter_id: mitarbeiter.id,\n      mitarbeiter_name: `${mitarbeiter.vorname} ${mitarbeiter.nachname}`,\n      mitarbeiter_email: mitarbeiter.email,\n      task_titel: task.titel,\n      verantwortlich: task.verantwortlich,\n      prioritaet: task.prioritaet,\n      frist: fristDatum.toISOString().split('T')[0],\n      status: 'offen'\n    }\n  };\n});\n\nreturn taskItems;"
+      },
+      "id": "c7369ce2-0779-4106-b504-2f535ef5f4d1",
+      "name": "Onboarding-Tasks generieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO onboarding_tasks (\n  mitarbeiter_id,\n  titel,\n  verantwortlich,\n  prioritaet,\n  frist,\n  status,\n  erstellt_am\n) VALUES (\n  {{ $json.mitarbeiter_id }},\n  '{{ $json.task_titel }}',\n  '{{ $json.verantwortlich }}',\n  '{{ $json.prioritaet }}',\n  '{{ $json.frist }}',\n  '{{ $json.status }}',\n  NOW()\n)\nRETURNING *",
+        "options": {}
+      },
+      "id": "74b4dd74-480a-424c-baa5-5eec031b083e",
+      "name": "Tasks in DB speichern",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        -656,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEETS_ONBOARDING_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Onboarding Tasks",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "mitarbeiter": "={{ $json.mitarbeiter_name }}",
+            "email": "={{ $json.mitarbeiter_email }}",
+            "task": "={{ $json.task_titel }}",
+            "verantwortlich": "={{ $json.verantwortlich }}",
+            "prioritaet": "={{ $json.prioritaet }}",
+            "frist": "={{ $json.frist }}",
+            "status": "={{ $json.status }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "31b1df91-6675-4702-8c4f-62071a476787",
+      "name": "In Google Sheets eintragen",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [
+        -448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alle Tasks für Zusammenfassung sammeln\nconst tasks = $input.all();\nconst mitarbeiter = tasks[0].json;\n\nconst tasksByDepartment = {};\n\ntasks.forEach(task => {\n  const dept = task.json.verantwortlich;\n  if (!tasksByDepartment[dept]) {\n    tasksByDepartment[dept] = [];\n  }\n  tasksByDepartment[dept].push({\n    titel: task.json.task_titel,\n    prioritaet: task.json.prioritaet,\n    frist: task.json.frist\n  });\n});\n\nreturn [{\n  json: {\n    mitarbeiter_name: mitarbeiter.mitarbeiter_name,\n    mitarbeiter_email: mitarbeiter.mitarbeiter_email,\n    tasks_nach_abteilung: tasksByDepartment,\n    gesamt_tasks: tasks.length\n  }\n}];"
+      },
+      "id": "16596ba6-cc6f-4aab-8510-b2eeb7e1828d",
+      "name": "Tasks aggregieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hr@firma.de",
+        "toEmail": "={{ $json.mitarbeiter_email }}",
+        "subject": "=Herzlich Willkommen bei uns, {{ $json.mitarbeiter_name.split(' ')[0] }}!",
+        "options": {}
+      },
+      "id": "a527fd7d-8f9b-41c9-9f03-f381259ea369",
+      "name": "Welcome Email an Mitarbeiter",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "dd31f8a8-27c0-4543-81c2-eda4386a4c75"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C_HR_CHANNEL",
+          "mode": "id"
+        },
+        "text": "=👋 *Neuer Mitarbeiter im Onboarding*\n\n*Name:* {{ $json.mitarbeiter_name }}\n*E-Mail:* {{ $json.mitarbeiter_email }}\n*Tasks erstellt:* {{ $json.gesamt_tasks }}\n\n*Abteilungen mit Tasks:*\n{{ Object.keys($json.tasks_nach_abteilung).map(dept => `• ${dept}: ${$json.tasks_nach_abteilung[dept].length} Tasks`).join('\\n') }}\n\nWelcome-E-Mail wurde versendet! ✉️",
+        "otherOptions": {}
+      },
+      "id": "ed7ec30c-19c7-4d0c-b3d9-021c0d7eea8d",
+      "name": "Slack Notification HR",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        112
+      ],
+      "webhookId": "4ef555b8-fd05-4eee-a875-c9e7471d7fa2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Benachrichtigungen für einzelne Abteilungen vorbereiten\nconst data = $input.first().json;\nconst departments = ['IT', 'HR', 'Facility'];\n\nconst notifications = departments.map(dept => {\n  const deptTasks = data.tasks_nach_abteilung[dept] || [];\n  \n  return {\n    json: {\n      abteilung: dept,\n      mitarbeiter_name: data.mitarbeiter_name,\n      tasks: deptTasks,\n      anzahl_tasks: deptTasks.length\n    }\n  };\n}).filter(item => item.json.anzahl_tasks > 0);\n\nreturn notifications;"
+      },
+      "id": "f0431e88-c031-4a7e-b60f-044886ca87d2",
+      "name": "Abteilungs-Notifications vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "hr@firma.de",
+        "toEmail": "={{ $json.abteilung.toLowerCase() }}@firma.de",
+        "subject": "=Onboarding-Tasks für neuen Mitarbeiter - {{ $json.mitarbeiter_name }}",
+        "options": {}
+      },
+      "id": "21bb3282-a9d3-4e95-ac5c-e684e7e57b7e",
+      "name": "Email an Abteilungen",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        208
+      ],
+      "webhookId": "2e7d44e6-d670-4974-b905-c8ad1c50a4ef"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"success\", \"mitarbeiter\": $json.mitarbeiter_name, \"tasks_erstellt\": $json.gesamt_tasks, \"message\": \"Onboarding-Prozess gestartet\" } }}",
+        "options": {}
+      },
+      "id": "d5e54d62-267c-401a-ad33-d4a566d06346",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        448,
+        112
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Neuer Mitarbeiter Webhook": {
+      "main": [
+        [
+          {
+            "node": "Mitarbeiter-Daten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mitarbeiter-Daten": {
+      "main": [
+        [
+          {
+            "node": "Mitarbeiter in DB anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mitarbeiter in DB anlegen": {
+      "main": [
+        [
+          {
+            "node": "Onboarding-Tasks generieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Onboarding-Tasks generieren": {
+      "main": [
+        [
+          {
+            "node": "Tasks in DB speichern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tasks in DB speichern": {
+      "main": [
+        [
+          {
+            "node": "In Google Sheets eintragen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In Google Sheets eintragen": {
+      "main": [
+        [
+          {
+            "node": "Tasks aggregieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tasks aggregieren": {
+      "main": [
+        [
+          {
+            "node": "Welcome Email an Mitarbeiter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack Notification HR",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Abteilungs-Notifications vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Welcome Email an Mitarbeiter": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notification HR": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abteilungs-Notifications vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Email an Abteilungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email an Abteilungen": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1b73eea8-9f75-4791-9007-57a7e923f9ec",
+  "meta": {
+    "instanceId": "029e2d3cea189f1c5228b09a1c5ad4063db6c115097d7502d13b4e0a328e558b"
+  },
+  "id": "d8Q9IBhPd9ZoXiHG",
+  "tags": []
+}
