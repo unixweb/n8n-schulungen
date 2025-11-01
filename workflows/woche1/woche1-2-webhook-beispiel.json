@@ -1,71 +1,79 @@
 {
-  "name": "Woche 1.2 - Webhook mit Begrüßung",
+  "name": "Webhook Example Workflow",
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "GET",
-        "path": "begruessen",
+        "httpMethod": "POST",
+        "path": "customer-data",
+        "responseMode": "responseNode",
         "options": {}
       },
-      "id": "e5f6a7b8-c9d0-4e5f-2a3b-4c5d6e7f8a9b",
+      "id": "3cc8fbea-88c5-4b3a-803c-2bccd62c1922",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1.1,
-      "position": [250, 300],
-      "webhookId": "12345678-1234-1234-1234-123456789012"
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -32
+      ],
+      "webhookId": "customer-data-webhook"
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "name",
-              "value": "={{ $json.query.name || 'Gast' }}"
-            },
-            {
-              "name": "begruessung",
-              "value": "=Hallo {{ $json.query.name || 'Gast' }}! Willkommen!"
-            }
-          ]
-        },
-        "options": {}
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
       },
-      "id": "f6a7b8c9-d0e1-4f5a-3b4c-5d6e7f8a9b0c",
-      "name": "Begrüßung erstellen",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.2,
-      "position": [470, 300]
+      "id": "b61955e1-95e6-4ffa-8e93-3ad0a56a966e",
+      "name": "Daten verarbeiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -32
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"message\": $json.begruessung, \"name\": $json.name } }}",
-        "options": {}
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
       },
-      "id": "a7b8c9d0-e1f2-4a5b-4c5d-6e7f8a9b0c1d",
-      "name": "Response zurückgeben",
+      "id": "c6ab12bd-2e15-4653-a315-f2b54a0792ee",
+      "name": "Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [690, 300]
+      "position": [
+        48,
+        -32
+      ]
     }
   ],
+  "pinData": {},
   "connections": {
     "Webhook": {
       "main": [
         [
           {
-            "node": "Begrüßung erstellen",
+            "node": "Daten verarbeiten",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Begrüßung erstellen": {
+    "Daten verarbeiten": {
       "main": [
         [
           {
-            "node": "Response zurückgeben",
+            "node": "Response",
             "type": "main",
             "index": 0
           }
@@ -73,13 +81,14 @@
       ]
     }
   },
-  "pinData": {},
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "staticData": null,
-  "tags": [],
-  "triggerCount": 0,
-  "updatedAt": "2025-01-15T10:00:00.000Z",
-  "versionId": "1"
+  "versionId": "73091cd9-3ad7-40ea-ac58-ab0569023f61",
+  "meta": {
+    "instanceId": "029e2d3cea189f1c5228b09a1c5ad4063db6c115097d7502d13b4e0a328e558b"
+  },
+  "id": "HV9qOml0F7mH6Jnz",
+  "tags": []
 }
