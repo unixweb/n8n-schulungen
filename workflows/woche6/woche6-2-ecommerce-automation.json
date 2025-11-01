@@ -4,375 +4,569 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "neuer-mitarbeiter",
+        "path": "bestellung",
         "options": {}
       },
-      "id": "52b6d43d-da21-4edf-974a-516dba1aca1e",
-      "name": "Neuer Mitarbeiter Webhook",
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Bestellungs-Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
-      "position": [
-        -1536,
-        112
-      ],
-      "webhookId": "onboarding-webhook-abc"
+      "position": [250, 300],
+      "webhookId": "ecommerce-webhook-xyz"
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "ma-1",
-              "name": "vorname",
-              "value": "={{ $json.body.vorname }}",
+              "id": "order-1",
+              "name": "bestellung_id",
+              "value": "={{ $json.body.bestellung_id }}",
               "type": "string"
             },
             {
-              "id": "ma-2",
-              "name": "nachname",
-              "value": "={{ $json.body.nachname }}",
+              "id": "order-2",
+              "name": "kunde_id",
+              "value": "={{ $json.body.kunde_id }}",
+              "type": "number"
+            },
+            {
+              "id": "order-3",
+              "name": "kunde_email",
+              "value": "={{ $json.body.kunde_email }}",
               "type": "string"
             },
             {
-              "id": "ma-3",
-              "name": "email",
-              "value": "={{ $json.body.email }}",
-              "type": "string"
+              "id": "order-4",
+              "name": "produkte",
+              "value": "={{ $json.body.produkte }}",
+              "type": "array"
             },
             {
-              "id": "ma-4",
-              "name": "abteilung",
-              "value": "={{ $json.body.abteilung }}",
-              "type": "string"
-            },
-            {
-              "id": "ma-5",
-              "name": "startdatum",
-              "value": "={{ $json.body.startdatum }}",
-              "type": "string"
-            },
-            {
-              "id": "ma-6",
-              "name": "position",
-              "value": "={{ $json.body.position }}",
-              "type": "string"
+              "id": "order-5",
+              "name": "gesamtbetrag",
+              "value": "={{ $json.body.gesamtbetrag }}",
+              "type": "number"
             }
           ]
         },
         "options": {}
       },
-      "id": "d5d73510-fd1b-4b77-af72-db4c44974bc4",
-      "name": "Mitarbeiter-Daten",
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Bestelldaten extrahieren",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [
-        -1328,
-        112
-      ]
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "valid-1",
+              "leftValue": "={{ $json.bestellung_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "valid-2",
+              "leftValue": "={{ $json.kunde_email }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "valid-3",
+              "leftValue": "={{ $json.produkte.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Bestellung validieren",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 300]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO mitarbeiter (\n  vorname,\n  nachname,\n  email,\n  abteilung,\n  position,\n  startdatum,\n  status,\n  erstellt_am\n) VALUES (\n  '{{ $json.vorname }}',\n  '{{ $json.nachname }}',\n  '{{ $json.email }}',\n  '{{ $json.abteilung }}',\n  '{{ $json.position }}',\n  '{{ $json.startdatum }}',\n  'onboarding',\n  NOW()\n)\nRETURNING *",
+        "query": "=INSERT INTO bestellungen (\n  bestellung_id,\n  kunde_id,\n  kunde_email,\n  gesamtbetrag,\n  status,\n  erstellt_am\n) VALUES (\n  '{{ $json.bestellung_id }}',\n  {{ $json.kunde_id }},\n  '{{ $json.kunde_email }}',\n  {{ $json.gesamtbetrag }},\n  'neu',\n  NOW()\n)\nRETURNING *",
         "options": {}
       },
-      "id": "cdb253c0-b971-44ca-80c8-3e9f0221f6b7",
-      "name": "Mitarbeiter in DB anlegen",
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+      "name": "Bestellung in DB speichern",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.4,
-      "position": [
-        -1104,
-        112
-      ]
+      "position": [910, 200],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Onboarding-Tasks für neuen Mitarbeiter generieren\nconst mitarbeiter = $input.first().json;\n\nconst tasks = [\n  {\n    titel: 'E-Mail-Account einrichten',\n    verantwortlich: 'IT',\n    prioritaet: 'hoch',\n    frist_tage: 3\n  },\n  {\n    titel: 'Hardware bereitstellen (Laptop, Monitor)',\n    verantwortlich: 'IT',\n    prioritaet: 'hoch',\n    frist_tage: 5\n  },\n  {\n    titel: 'Arbeitsplatz vorbereiten',\n    verantwortlich: 'Facility',\n    prioritaet: 'mittel',\n    frist_tage: 7\n  },\n  {\n    titel: 'Zugänge zu Systemen einrichten',\n    verantwortlich: 'IT',\n    prioritaet: 'hoch',\n    frist_tage: 3\n  },\n  {\n    titel: 'Onboarding-Buddy zuweisen',\n    verantwortlich: 'HR',\n    prioritaet: 'mittel',\n    frist_tage: 5\n  },\n  {\n    titel: 'Welcome-Package vorbereiten',\n    verantwortlich: 'HR',\n    prioritaet: 'niedrig',\n    frist_tage: 7\n  }\n];\n\n// Für jede Task ein Item erstellen\nconst taskItems = tasks.map(task => {\n  const fristDatum = new Date();\n  fristDatum.setDate(fristDatum.getDate() + task.frist_tage);\n  \n  return {\n    json: {\n      mitarbeiter_id: mitarbeiter.id,\n      mitarbeiter_name: `${mitarbeiter.vorname} ${mitarbeiter.nachname}`,\n      mitarbeiter_email: mitarbeiter.email,\n      task_titel: task.titel,\n      verantwortlich: task.verantwortlich,\n      prioritaet: task.prioritaet,\n      frist: fristDatum.toISOString().split('T')[0],\n      status: 'offen'\n    }\n  };\n});\n\nreturn taskItems;"
+        "jsCode": "// Lagerbestand für alle Produkte prüfen\nconst bestellung = $input.first().json;\nconst produkte = bestellung.produkte;\n\n// In realer Anwendung: DB-Query für jeden Artikel\n// Hier simuliert mit Mock-Data\nconst lagerbestand = {\n  1: 50,   // Laptop\n  2: 120,  // Maus\n  3: 30,   // Tastatur\n  4: 0     // Monitor (ausverkauft)\n};\n\nlet alleVerfuegbar = true;\nconst pruefErgebnisse = [];\n\nprodukte.forEach(produkt => {\n  const verfuegbar = lagerbestand[produkt.id] >= produkt.menge;\n  \n  pruefErgebnisse.push({\n    produkt_id: produkt.id,\n    produkt_name: produkt.name,\n    bestellmenge: produkt.menge,\n    lagerbestand: lagerbestand[produkt.id] || 0,\n    verfuegbar: verfuegbar\n  });\n  \n  if (!verfuegbar) {\n    alleVerfuegbar = false;\n  }\n});\n\nreturn [{\n  json: {\n    bestellung_id: bestellung.bestellung_id,\n    kunde_email: bestellung.kunde_email,\n    gesamtbetrag: bestellung.gesamtbetrag,\n    alle_produkte_verfuegbar: alleVerfuegbar,\n    produkt_pruefung: pruefErgebnisse,\n    nicht_verfuegbar: pruefErgebnisse.filter(p => !p.verfuegbar)\n  }\n}];"
       },
-      "id": "c7369ce2-0779-4106-b504-2f535ef5f4d1",
-      "name": "Onboarding-Tasks generieren",
+      "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+      "name": "Lagerbestand prüfen",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -880,
-        112
-      ]
+      "position": [1130, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "stock-check",
+              "leftValue": "={{ $json.alle_produkte_verfuegbar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c",
+      "name": "Alle Produkte verfügbar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1350, 200]
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO onboarding_tasks (\n  mitarbeiter_id,\n  titel,\n  verantwortlich,\n  prioritaet,\n  frist,\n  status,\n  erstellt_am\n) VALUES (\n  {{ $json.mitarbeiter_id }},\n  '{{ $json.task_titel }}',\n  '{{ $json.verantwortlich }}',\n  '{{ $json.prioritaet }}',\n  '{{ $json.frist }}',\n  '{{ $json.status }}',\n  NOW()\n)\nRETURNING *",
+        "query": "=UPDATE bestellungen \nSET \n  status = 'bestaetigt',\n  bestaetigt_am = NOW()\nWHERE bestellung_id = '{{ $json.bestellung_id }}'",
         "options": {}
       },
-      "id": "74b4dd74-480a-424c-baa5-5eec031b083e",
-      "name": "Tasks in DB speichern",
+      "id": "a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d",
+      "name": "Status auf bestätigt setzen",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.4,
-      "position": [
-        -656,
-        112
-      ]
+      "position": [1570, 100],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
     },
     {
       "parameters": {
-        "operation": "appendOrUpdate",
-        "documentId": {
-          "__rl": true,
-          "value": "GOOGLE_SHEETS_ONBOARDING_ID",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Onboarding Tasks",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "mitarbeiter": "={{ $json.mitarbeiter_name }}",
-            "email": "={{ $json.mitarbeiter_email }}",
-            "task": "={{ $json.task_titel }}",
-            "verantwortlich": "={{ $json.verantwortlich }}",
-            "prioritaet": "={{ $json.prioritaet }}",
-            "frist": "={{ $json.frist }}",
-            "status": "={{ $json.status }}"
-          }
-        },
-        "options": {}
+        "jsCode": "// Rechnung generieren\nconst bestellung = $input.first().json;\n\nconst rechnungsNummer = `RE-${bestellung.bestellung_id}`;\nconst rechnungsDatum = new Date().toISOString().split('T')[0];\n\nconst rechnung = {\n  rechnungs_nummer: rechnungsNummer,\n  bestellung_id: bestellung.bestellung_id,\n  datum: rechnungsDatum,\n  kunde_email: bestellung.kunde_email,\n  gesamtbetrag: bestellung.gesamtbetrag,\n  produkte: bestellung.produkt_pruefung.map(p => ({\n    name: p.produkt_name,\n    menge: p.bestellmenge\n  })),\n  zahlungsziel: '14 Tage'\n};\n\nreturn [{ json: rechnung }];"
       },
-      "id": "31b1df91-6675-4702-8c4f-62071a476787",
-      "name": "In Google Sheets eintragen",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.2,
-      "position": [
-        -448,
-        112
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Alle Tasks für Zusammenfassung sammeln\nconst tasks = $input.all();\nconst mitarbeiter = tasks[0].json;\n\nconst tasksByDepartment = {};\n\ntasks.forEach(task => {\n  const dept = task.json.verantwortlich;\n  if (!tasksByDepartment[dept]) {\n    tasksByDepartment[dept] = [];\n  }\n  tasksByDepartment[dept].push({\n    titel: task.json.task_titel,\n    prioritaet: task.json.prioritaet,\n    frist: task.json.frist\n  });\n});\n\nreturn [{\n  json: {\n    mitarbeiter_name: mitarbeiter.mitarbeiter_name,\n    mitarbeiter_email: mitarbeiter.mitarbeiter_email,\n    tasks_nach_abteilung: tasksByDepartment,\n    gesamt_tasks: tasks.length\n  }\n}];"
-      },
-      "id": "16596ba6-cc6f-4aab-8510-b2eeb7e1828d",
-      "name": "Tasks aggregieren",
+      "id": "b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e",
+      "name": "Rechnung generieren",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -224,
-        112
-      ]
+      "position": [1790, 100]
     },
     {
       "parameters": {
-        "fromEmail": "hr@firma.de",
-        "toEmail": "={{ $json.mitarbeiter_email }}",
-        "subject": "=Herzlich Willkommen bei uns, {{ $json.mitarbeiter_name.split(' ')[0] }}!",
+        "fromEmail": "bestellungen@shop.de",
+        "toEmail": "={{ $json.kunde_email }}",
+        "subject": "=Bestellbestätigung - {{ $json.bestellung_id }}",
+        "emailType": "html",
+        "message": "=<h2>Vielen Dank für Ihre Bestellung!</h2>\n\n<p>Ihre Bestellung wurde erfolgreich aufgegeben.</p>\n\n<p><strong>Bestellnummer:</strong> {{ $json.bestellung_id }}</p>\n<p><strong>Rechnungsnummer:</strong> {{ $json.rechnungs_nummer }}</p>\n<p><strong>Gesamtbetrag:</strong> {{ $json.gesamtbetrag }}€</p>\n\n<h3>Bestellte Produkte:</h3>\n<ul>\n{{ $json.produkte.map(p => `<li>${p.name} - Menge: ${p.menge}</li>`).join('') }}\n</ul>\n\n<p><strong>Zahlungsziel:</strong> {{ $json.zahlungsziel }}</p>\n\n<p>Ihre Bestellung wird in Kürze versendet.</p>\n\n<p>Mit freundlichen Grüßen<br>Ihr Shop-Team</p>",
         "options": {}
       },
-      "id": "a527fd7d-8f9b-41c9-9f03-f381259ea369",
-      "name": "Welcome Email an Mitarbeiter",
+      "id": "c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f",
+      "name": "Bestätigungs-Email senden",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [
-        0,
-        0
-      ],
-      "webhookId": "dd31f8a8-27c0-4543-81c2-eda4386a4c75"
+      "position": [2010, 0],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
     },
     {
       "parameters": {
         "select": "channel",
         "channelId": {
           "__rl": true,
-          "value": "C_HR_CHANNEL",
+          "value": "C_SALES_CHANNEL",
           "mode": "id"
         },
-        "text": "=👋 *Neuer Mitarbeiter im Onboarding*\n\n*Name:* {{ $json.mitarbeiter_name }}\n*E-Mail:* {{ $json.mitarbeiter_email }}\n*Tasks erstellt:* {{ $json.gesamt_tasks }}\n\n*Abteilungen mit Tasks:*\n{{ Object.keys($json.tasks_nach_abteilung).map(dept => `• ${dept}: ${$json.tasks_nach_abteilung[dept].length} Tasks`).join('\\n') }}\n\nWelcome-E-Mail wurde versendet! ✉️",
+        "text": "=✅ *Neue Bestellung bestätigt*\n\n*Bestellung:* {{ $json.bestellung_id }}\n*Rechnung:* {{ $json.rechnungs_nummer }}\n*Betrag:* {{ $json.gesamtbetrag }}€\n*Kunde:* {{ $json.kunde_email }}\n\nBestellung kann versendet werden! 📦",
         "otherOptions": {}
       },
-      "id": "ed7ec30c-19c7-4d0c-b3d9-021c0d7eea8d",
-      "name": "Slack Notification HR",
+      "id": "d0e1f2a3-b4c5-4d6e-7f8a-9b0c1d2e3f4a",
+      "name": "Slack Benachrichtigung",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.1,
-      "position": [
-        0,
-        112
-      ],
-      "webhookId": "4ef555b8-fd05-4eee-a875-c9e7471d7fa2"
+      "position": [2010, 100],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "1",
+          "name": "Slack Account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "// Benachrichtigungen für einzelne Abteilungen vorbereiten\nconst data = $input.first().json;\nconst departments = ['IT', 'HR', 'Facility'];\n\nconst notifications = departments.map(dept => {\n  const deptTasks = data.tasks_nach_abteilung[dept] || [];\n  \n  return {\n    json: {\n      abteilung: dept,\n      mitarbeiter_name: data.mitarbeiter_name,\n      tasks: deptTasks,\n      anzahl_tasks: deptTasks.length\n    }\n  };\n}).filter(item => item.json.anzahl_tasks > 0);\n\nreturn notifications;"
-      },
-      "id": "f0431e88-c031-4a7e-b60f-044886ca87d2",
-      "name": "Abteilungs-Notifications vorbereiten",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        0,
-        208
-      ]
-    },
-    {
-      "parameters": {
-        "fromEmail": "hr@firma.de",
-        "toEmail": "={{ $json.abteilung.toLowerCase() }}@firma.de",
-        "subject": "=Onboarding-Tasks für neuen Mitarbeiter - {{ $json.mitarbeiter_name }}",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "success-1",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "success-2",
+              "name": "message",
+              "value": "Bestellung erfolgreich verarbeitet",
+              "type": "string"
+            },
+            {
+              "id": "success-3",
+              "name": "bestellung_id",
+              "value": "={{ $json.bestellung_id }}",
+              "type": "string"
+            },
+            {
+              "id": "success-4",
+              "name": "rechnungs_nummer",
+              "value": "={{ $json.rechnungs_nummer }}",
+              "type": "string"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "21bb3282-a9d3-4e95-ac5c-e684e7e57b7e",
-      "name": "Email an Abteilungen",
+      "id": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+      "name": "Success Response vorbereiten",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2230, 100]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE bestellungen \nSET \n  status = 'warteliste',\n  notizen = 'Nicht alle Produkte verfügbar'\nWHERE bestellung_id = '{{ $json.bestellung_id }}'",
+        "options": {}
+      },
+      "id": "f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c",
+      "name": "Status auf Warteliste setzen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1570, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "bestellungen@shop.de",
+        "toEmail": "={{ $json.kunde_email }}",
+        "subject": "=Bestellung verzögert - {{ $json.bestellung_id }}",
+        "emailType": "html",
+        "message": "=<h2>Ihre Bestellung ist eingegangen</h2>\n\n<p>Vielen Dank für Ihre Bestellung. Leider sind derzeit nicht alle Produkte verfügbar.</p>\n\n<p><strong>Bestellnummer:</strong> {{ $json.bestellung_id }}</p>\n\n<h3>Nicht verfügbare Produkte:</h3>\n<ul>\n{{ $json.nicht_verfuegbar.map(p => `<li>${p.produkt_name} (bestellt: ${p.bestellmenge}, verfügbar: ${p.lagerbestand})</li>`).join('') }}\n</ul>\n\n<p>Wir werden Sie informieren, sobald alle Produkte verfügbar sind.</p>\n\n<p>Alternativ können Sie die Bestellung anpassen oder stornieren.</p>\n\n<p>Mit freundlichen Grüßen<br>Ihr Shop-Team</p>",
+        "options": {}
+      },
+      "id": "a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d",
+      "name": "Verzögerungs-Email senden",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [
-        224,
-        208
-      ],
-      "webhookId": "2e7d44e6-d670-4974-b905-c8ad1c50a4ef"
+      "position": [1790, 300],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "delay-1",
+              "name": "status",
+              "value": "delayed",
+              "type": "string"
+            },
+            {
+              "id": "delay-2",
+              "name": "message",
+              "value": "Bestellung auf Warteliste - nicht alle Produkte verfügbar",
+              "type": "string"
+            },
+            {
+              "id": "delay-3",
+              "name": "bestellung_id",
+              "value": "={{ $json.bestellung_id }}",
+              "type": "string"
+            },
+            {
+              "id": "delay-4",
+              "name": "fehlende_produkte",
+              "value": "={{ $json.nicht_verfuegbar }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b4c5d6e7-f8a9-4b0c-1d2e-3f4a5b6c7d8e",
+      "name": "Delay Response vorbereiten",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2010, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error-1",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "error-2",
+              "name": "message",
+              "value": "Bestellung ungültig - bitte überprüfen Sie Ihre Eingaben",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c5d6e7f8-a9b0-4c1d-2e3f-4a5b6c7d8e9f",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [910, 400]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"status\": \"success\", \"mitarbeiter\": $json.mitarbeiter_name, \"tasks_erstellt\": $json.gesamt_tasks, \"message\": \"Onboarding-Prozess gestartet\" } }}",
+        "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "d5e54d62-267c-401a-ad33-d4a566d06346",
-      "name": "Response",
+      "id": "d6e7f8a9-b0c1-4d2e-3f4a-5b6c7d8e9f0a",
+      "name": "Response zurückgeben",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        448,
-        112
-      ]
+      "position": [2450, 300]
     }
   ],
-  "pinData": {},
   "connections": {
-    "Neuer Mitarbeiter Webhook": {
+    "Bestellungs-Webhook": {
       "main": [
         [
           {
-            "node": "Mitarbeiter-Daten",
+            "node": "Bestelldaten extrahieren",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mitarbeiter-Daten": {
+    "Bestelldaten extrahieren": {
       "main": [
         [
           {
-            "node": "Mitarbeiter in DB anlegen",
+            "node": "Bestellung validieren",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mitarbeiter in DB anlegen": {
+    "Bestellung validieren": {
       "main": [
         [
           {
-            "node": "Onboarding-Tasks generieren",
+            "node": "Bestellung in DB speichern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Onboarding-Tasks generieren": {
+    "Bestellung in DB speichern": {
       "main": [
         [
           {
-            "node": "Tasks in DB speichern",
+            "node": "Lagerbestand prüfen",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tasks in DB speichern": {
+    "Lagerbestand prüfen": {
       "main": [
         [
           {
-            "node": "In Google Sheets eintragen",
+            "node": "Alle Produkte verfügbar?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "In Google Sheets eintragen": {
+    "Alle Produkte verfügbar?": {
       "main": [
         [
           {
-            "node": "Tasks aggregieren",
+            "node": "Status auf bestätigt setzen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status auf Warteliste setzen",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Tasks aggregieren": {
+    "Status auf bestätigt setzen": {
       "main": [
         [
           {
-            "node": "Welcome Email an Mitarbeiter",
+            "node": "Rechnung generieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechnung generieren": {
+      "main": [
+        [
+          {
+            "node": "Bestätigungs-Email senden",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Slack Notification HR",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Abteilungs-Notifications vorbereiten",
+            "node": "Slack Benachrichtigung",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Welcome Email an Mitarbeiter": {
+    "Bestätigungs-Email senden": {
       "main": [
         [
           {
-            "node": "Response",
+            "node": "Success Response vorbereiten",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Slack Notification HR": {
+    "Slack Benachrichtigung": {
       "main": [
         [
           {
-            "node": "Response",
+            "node": "Success Response vorbereiten",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Abteilungs-Notifications vorbereiten": {
+    "Success Response vorbereiten": {
       "main": [
         [
           {
-            "node": "Email an Abteilungen",
+            "node": "Response zurückgeben",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Email an Abteilungen": {
+    "Status auf Warteliste setzen": {
       "main": [
         [
           {
-            "node": "Response",
+            "node": "Verzögerungs-Email senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verzögerungs-Email senden": {
+      "main": [
+        [
+          {
+            "node": "Delay Response vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delay Response vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Response zurückgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Response": {
+      "main": [
+        [
+          {
+            "node": "Response zurückgeben",
             "type": "main",
             "index": 0
           }
@@ -380,14 +574,13 @@
       ]
     }
   },
-  "active": false,
+  "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "1b73eea8-9f75-4791-9007-57a7e923f9ec",
-  "meta": {
-    "instanceId": "029e2d3cea189f1c5228b09a1c5ad4063db6c115097d7502d13b4e0a328e558b"
-  },
-  "id": "d8Q9IBhPd9ZoXiHG",
-  "tags": []
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
 }
