@@ -1,0 +1,229 @@
+{
+  "name": "Woche 5.2 - Batch Processing für große Datenmengen",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f8a9b0c1-d2e3-4f4a-5b6c-7d8e9f0a1b2c",
+      "name": "When clicking \"Test workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM kunden WHERE status = 'aktiv' ORDER BY id",
+        "options": {}
+      },
+      "id": "a9b0c1d2-e3f4-4a5b-6c7d-8e9f0a1b2c3d",
+      "name": "Alle aktiven Kunden laden",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [470, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "id": "b0c1d2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e",
+      "name": "In Batches aufteilen (50er)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aktueller Batch\nconst items = $input.all();\nconst batchInfo = $('In Batches aufteilen (50er)').item;\n\nconsole.log(`Verarbeite Batch ${batchInfo.json.batchNumber} von ${batchInfo.json.batchCount}`);\nconsole.log(`Anzahl Items in diesem Batch: ${items.length}`);\n\n// Beispiel: API-Calls für jeden Kunden simulieren\nconst results = items.map(item => {\n  return {\n    json: {\n      kunde_id: item.json.id,\n      kunde_name: item.json.name,\n      email: item.json.email,\n      verarbeitet_am: new Date().toISOString(),\n      batch_nummer: batchInfo.json.batchNumber,\n      status: 'verarbeitet'\n    }\n  };\n});\n\nreturn results;"
+      },
+      "id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+      "name": "Batch verarbeiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.beispiel.de/kunden/update",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"kunde_id\": {{ $json.kunde_id }},\n  \"status\": \"{{ $json.status }}\",\n  \"timestamp\": \"{{ $json.verarbeitet_am }}\"\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 10,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "d2e3f4a5-b6c7-4d8e-9f0a-1b2c3d4e5f6a",
+      "name": "API Call (mit Rate Limiting)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1130, 300],
+      "disabled": true,
+      "notes": "Deaktiviert - nur zur Demo. In Praxis: Echte API einsetzen"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "e3f4a5b6-c7d8-4e9f-0a1b-2c3d4e5f6a7b",
+      "name": "Warte zwischen Batches",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE kunden \nSET \n  verarbeitet_am = NOW(),\n  status = 'synchronisiert'\nWHERE id = {{ $json.kunde_id }}",
+        "options": {}
+      },
+      "id": "f4a5b6c7-d8e9-4f0a-1b2c-3d4e5f6a7b8c",
+      "name": "DB Status updaten",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1350, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "number": [
+            {
+              "name": "verarbeitete_items",
+              "value": "={{ $json.kunde_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a5b6c7d8-e9f0-4a1b-2c3d-4e5f6a7b8c9d",
+      "name": "Log Item",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alle verarbeiteten Items sammeln\nconst allItems = $input.all();\n\nconst summary = {\n  gesamt_verarbeitet: allItems.length,\n  erfolg: allItems.filter(i => i.json.status === 'verarbeitet').length,\n  zeitstempel: new Date().toISOString()\n};\n\nconsole.log('Batch-Verarbeitung abgeschlossen:', summary);\n\nreturn [{ json: summary }];"
+      },
+      "id": "b6c7d8e9-f0a1-4b2c-3d4e-5f6a7b8c9d0e",
+      "name": "Zusammenfassung erstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1790, 300]
+    }
+  ],
+  "connections": {
+    "When clicking \"Test workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Alle aktiven Kunden laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alle aktiven Kunden laden": {
+      "main": [
+        [
+          {
+            "node": "In Batches aufteilen (50er)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In Batches aufteilen (50er)": {
+      "main": [
+        [
+          {
+            "node": "Batch verarbeiten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zusammenfassung erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch verarbeiten": {
+      "main": [
+        [
+          {
+            "node": "Warte zwischen Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Warte zwischen Batches": {
+      "main": [
+        [
+          {
+            "node": "DB Status updaten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB Status updaten": {
+      "main": [
+        [
+          {
+            "node": "Log Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Item": {
+      "main": [
+        [
+          {
+            "node": "In Batches aufteilen (50er)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}

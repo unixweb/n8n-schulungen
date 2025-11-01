@@ -1,0 +1,186 @@
+{
+  "name": "Woche 4.3 - Inkrementeller Sync Google Sheets zu PostgreSQL",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c",
+      "name": "Alle 15 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(MAX(last_sync), '1970-01-01 00:00:00') as last_sync \nFROM sync_log \nWHERE sync_name = 'google_sheets_kunden'",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Letzten Sync-Zeitpunkt holen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [470, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "IHRE_GOOGLE_SHEETS_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Kunden",
+          "mode": "name"
+        },
+        "options": {
+          "returnAllMatches": true
+        }
+      },
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Google Sheets Daten abrufen",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [690, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Letzten Sync-Zeitpunkt aus erstem Input\nconst lastSync = new Date($input.first().json.last_sync);\n\n// Alle Sheet-Daten aus zweitem Input\nconst sheetData = $input.all();\n\n// Nur neue oder geänderte Einträge filtern\nconst neueEintraege = sheetData.filter(item => {\n  const itemDate = new Date(item.json.geaendert_am || item.json.erstellt_am);\n  return itemDate > lastSync;\n});\n\nconsole.log(`Gefunden: ${neueEintraege.length} neue/geänderte Einträge seit ${lastSync}`);\n\nif (neueEintraege.length === 0) {\n  return [];\n}\n\nreturn neueEintraege;"
+      },
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Nur neue Einträge filtern",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO kunden (name, email, telefon, quelle, erstellt_am)\nVALUES (\n  '{{ $json.name }}',\n  '{{ $json.email }}',\n  '{{ $json.telefon || '' }}',\n  'Google Sheets',\n  NOW()\n)\nON CONFLICT (email) \nDO UPDATE SET \n  name = EXCLUDED.name,\n  telefon = EXCLUDED.telefon,\n  geaendert_am = NOW()\nRETURNING *",
+        "options": {}
+      },
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+      "name": "In DB einfügen/updaten",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1130, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO sync_log (sync_name, last_sync, eintraege_verarbeitet)\nVALUES (\n  'google_sheets_kunden',\n  NOW(),\n  {{ $items().length }}\n)",
+        "options": {}
+      },
+      "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+      "name": "Sync-Log aktualisieren",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1350, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Alle 15 Minuten": {
+      "main": [
+        [
+          {
+            "node": "Letzten Sync-Zeitpunkt holen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets Daten abrufen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Letzten Sync-Zeitpunkt holen": {
+      "main": [
+        [
+          {
+            "node": "Nur neue Einträge filtern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Daten abrufen": {
+      "main": [
+        [
+          {
+            "node": "Nur neue Einträge filtern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nur neue Einträge filtern": {
+      "main": [
+        [
+          {
+            "node": "In DB einfügen/updaten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In DB einfügen/updaten": {
+      "main": [
+        [
+          {
+            "node": "Sync-Log aktualisieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}

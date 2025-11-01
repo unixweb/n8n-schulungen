@@ -1,0 +1,145 @@
+{
+  "name": "Woche 1.4 - Tägliche Wettervorhersage per Email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+      "name": "Täglich um 8 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "52.52"
+            },
+            {
+              "name": "longitude",
+              "value": "13.41"
+            },
+            {
+              "name": "current_weather",
+              "value": "true"
+            },
+            {
+              "name": "daily",
+              "value": "temperature_2m_max,temperature_2m_min"
+            },
+            {
+              "name": "timezone",
+              "value": "Europe/Berlin"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c",
+      "name": "Wetter API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "betreff",
+              "value": "Wettervorhersage für Berlin - {{ $now.format('dd.MM.yyyy') }}"
+            },
+            {
+              "name": "nachricht",
+              "value": "=Guten Morgen!\n\nHier ist Ihre Wettervorhersage für heute:\n\n🌡️ Aktuelle Temperatur: {{ $json.current_weather.temperature }}°C\n📈 Höchsttemperatur: {{ $json.daily.temperature_2m_max[0] }}°C\n📉 Tiefsttemperatur: {{ $json.daily.temperature_2m_min[0] }}°C\n💨 Windgeschwindigkeit: {{ $json.current_weather.windspeed }} km/h\n\nSchönen Tag!\n\nAutomatisch generiert von n8n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d",
+      "name": "Email-Inhalt erstellen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "wetter@beispiel.de",
+        "toEmail": "empfaenger@beispiel.de",
+        "subject": "={{ $json.betreff }}",
+        "emailType": "text",
+        "message": "={{ $json.nachricht }}",
+        "options": {}
+      },
+      "id": "b4c5d6e7-f8a9-4b0c-1d2e-3f4a5b6c7d8e",
+      "name": "Email senden",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [910, 300],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Täglich um 8 Uhr": {
+      "main": [
+        [
+          {
+            "node": "Wetter API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wetter API": {
+      "main": [
+        [
+          {
+            "node": "Email-Inhalt erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email-Inhalt erstellen": {
+      "main": [
+        [
+          {
+            "node": "Email senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}

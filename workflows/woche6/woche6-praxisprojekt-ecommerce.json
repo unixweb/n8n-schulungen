@@ -1,0 +1,538 @@
+{
+  "name": "Woche 6 - Praxisprojekt: E-Commerce Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "neue-bestellung",
+        "options": {}
+      },
+      "id": "d9e0f1a2-b3c4-4d5e-6f7a-8b9c0d1e2f3a",
+      "name": "Neue Bestellung Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 400],
+      "webhookId": "ecommerce-order-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "order-1",
+              "name": "bestellung_id",
+              "value": "={{ $json.body.bestellung_id }}",
+              "type": "string"
+            },
+            {
+              "id": "order-2",
+              "name": "kunde_id",
+              "value": "={{ $json.body.kunde_id }}",
+              "type": "number"
+            },
+            {
+              "id": "order-3",
+              "name": "kunde_email",
+              "value": "={{ $json.body.kunde_email }}",
+              "type": "string"
+            },
+            {
+              "id": "order-4",
+              "name": "produkte",
+              "value": "={{ $json.body.produkte }}",
+              "type": "array"
+            },
+            {
+              "id": "order-5",
+              "name": "gesamtbetrag",
+              "value": "={{ $json.body.gesamtbetrag }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e0f1a2b3-c4d5-4e6f-7a8b-9c0d1e2f3a4b",
+      "name": "Bestelldaten extrahieren",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [470, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "val-1",
+              "leftValue": "={{ $json.bestellung_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "val-2",
+              "leftValue": "={{ $json.kunde_email }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "val-3",
+              "leftValue": "={{ $json.gesamtbetrag }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+      "name": "Bestellung valide?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO bestellungen (\n  bestellung_id,\n  kunde_id,\n  kunde_email,\n  gesamtbetrag,\n  status,\n  erstellt_am\n) VALUES (\n  '{{ $json.bestellung_id }}',\n  {{ $json.kunde_id }},\n  '{{ $json.kunde_email }}',\n  {{ $json.gesamtbetrag }},\n  'neu',\n  NOW()\n)\nRETURNING *",
+        "options": {}
+      },
+      "id": "a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Bestellung in DB speichern",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [910, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Produkte aus der Bestellung extrahieren\nconst produkte = $input.first().json.produkte;\n\n// Für jedes Produkt Lagerbestand prüfen\nconst lagerChecks = produkte.map(produkt => {\n  return {\n    json: {\n      bestellung_id: $input.first().json.bestellung_id,\n      produkt_id: produkt.id,\n      produkt_name: produkt.name,\n      menge: produkt.menge,\n      preis: produkt.preis\n    }\n  };\n});\n\nreturn lagerChecks;"
+      },
+      "id": "b3c4d5e6-f7a8-4b9c-0d1e-2f3a4b5c6d7e",
+      "name": "Produkte aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT \n  id,\n  name,\n  lagerbestand,\n  CASE \n    WHEN lagerbestand >= {{ $json.menge }} THEN true\n    ELSE false\n  END as verfuegbar\nFROM produkte\nWHERE id = {{ $json.produkt_id }}",
+        "options": {}
+      },
+      "id": "c4d5e6f7-a8b9-4c0d-1e2f-3a4b5c6d7e8f",
+      "name": "Lagerbestand prüfen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1350, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alle Lagerprüfungen sammeln\nconst items = $input.all();\n\n// Prüfen ob alle Produkte verfügbar sind\nconst alleVerfuegbar = items.every(item => item.json.verfuegbar === true);\n\nconst result = {\n  bestellung_id: items[0].json.bestellung_id || $('Bestellung in DB speichern').first().json.bestellung_id,\n  alle_produkte_verfuegbar: alleVerfuegbar,\n  produkte_details: items.map(i => ({\n    id: i.json.id,\n    name: i.json.name,\n    lagerbestand: i.json.lagerbestand,\n    verfuegbar: i.json.verfuegbar\n  })),\n  status: alleVerfuegbar ? 'approved' : 'pending'\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "d5e6f7a8-b9c0-4d1e-2f3a-4b5c6d7e8f9a",
+      "name": "Lager-Status aggregieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "stock-ok",
+              "leftValue": "={{ $json.alle_produkte_verfuegbar }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e6f7a8b9-c0d1-4e2f-3a4b-5c6d7e8f9a0b",
+      "name": "Alle Produkte verfügbar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE bestellungen \nSET status = 'bestaetigt', \n    bestaetigt_am = NOW()\nWHERE bestellung_id = '{{ $json.bestellung_id }}'",
+        "options": {}
+      },
+      "id": "f7a8b9c0-d1e2-4f3a-4b5c-6d7e8f9a0b1c",
+      "name": "Bestellung bestätigen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [2010, 200],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rechnung generieren\nconst bestellung = $input.first().json;\nconst kundenEmail = $('Bestelldaten extrahieren').first().json.kunde_email;\n\nconst rechnungsNummer = `RE-${Date.now()}-${bestellung.bestellung_id.substring(0, 6)}`;\n\nconst rechnung = {\n  rechnungsnummer: rechnungsNummer,\n  bestellung_id: bestellung.bestellung_id,\n  kunde_email: kundenEmail,\n  datum: new Date().toISOString().split('T')[0],\n  produkte: bestellung.produkte_details,\n  gesamtbetrag: $('Bestelldaten extrahieren').first().json.gesamtbetrag,\n  mehrwertsteuer: Math.round($('Bestelldaten extrahieren').first().json.gesamtbetrag * 0.19 * 100) / 100\n};\n\nreturn [{ json: rechnung }];"
+      },
+      "id": "a8b9c0d1-e2f3-4a4b-5c6d-7e8f9a0b1c2d",
+      "name": "Rechnung generieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2230, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "bestellungen@shop.de",
+        "toEmail": "={{ $json.kunde_email }}",
+        "subject": "=Ihre Bestellung {{ $json.bestellung_id }} wurde bestätigt - Rechnung {{ $json.rechnungsnummer }}",
+        "emailType": "html",
+        "message": "=<h2>Bestellbestätigung</h2>\n<p>Sehr geehrter Kunde,</p>\n<p>Ihre Bestellung wurde erfolgreich bestätigt!</p>\n\n<h3>Bestelldetails:</h3>\n<ul>\n  <li><strong>Bestellnummer:</strong> {{ $json.bestellung_id }}</li>\n  <li><strong>Rechnungsnummer:</strong> {{ $json.rechnungsnummer }}</li>\n  <li><strong>Datum:</strong> {{ $json.datum }}</li>\n  <li><strong>Gesamtbetrag:</strong> {{ $json.gesamtbetrag }}€</li>\n  <li><strong>MwSt (19%):</strong> {{ $json.mehrwertsteuer }}€</li>\n</ul>\n\n<h3>Bestellte Produkte:</h3>\n<ul>\n  {{ $json.produkte.map(p => `<li>${p.name} - Lagerbestand: ${p.lagerbestand}</li>`).join('') }}\n</ul>\n\n<p>Vielen Dank für Ihre Bestellung!</p>\n<p>Ihr Shop-Team</p>",
+        "options": {}
+      },
+      "id": "b9c0d1e2-f3a4-4b5c-6d7e-8f9a0b1c2d3e",
+      "name": "Bestätigungs-Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2450, 200],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C_SALES_CHANNEL",
+          "mode": "id"
+        },
+        "text": "=✅ *Neue Bestellung bestätigt*\n\n*Bestellung:* {{ $json.bestellung_id }}\n*Rechnung:* {{ $json.rechnungsnummer }}\n*Betrag:* {{ $json.gesamtbetrag }}€\n*Kunde:* {{ $json.kunde_email }}\n\nE-Mail-Bestätigung wurde versendet.",
+        "otherOptions": {}
+      },
+      "id": "c0d1e2f3-a4b5-4c6d-7e8f-9a0b1c2d3e4f",
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [2450, 100],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "1",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE bestellungen \nSET status = 'wartend_lager', \n    notizen = 'Nicht alle Produkte verfügbar'\nWHERE bestellung_id = '{{ $json.bestellung_id }}'",
+        "options": {}
+      },
+      "id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+      "name": "Status: Wartend",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [2010, 400],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "bestellungen@shop.de",
+        "toEmail": "={{ $('Bestelldaten extrahieren').first().json.kunde_email }}",
+        "subject": "=Ihre Bestellung {{ $json.bestellung_id }} - Verzögerung",
+        "emailType": "html",
+        "message": "=<h2>Bestellverzögerung</h2>\n<p>Sehr geehrter Kunde,</p>\n<p>Leider sind momentan nicht alle Produkte Ihrer Bestellung auf Lager.</p>\n\n<p><strong>Bestellnummer:</strong> {{ $json.bestellung_id }}</p>\n\n<h3>Produkt-Status:</h3>\n<ul>\n  {{ $json.produkte_details.map(p => `<li>${p.name} - ${p.verfuegbar ? '✅ Verfügbar' : '❌ Nicht verfügbar'} (Lager: ${p.lagerbestand})</li>`).join('') }}\n</ul>\n\n<p>Wir informieren Sie, sobald alle Produkte verfügbar sind.</p>\n<p>Ihr Shop-Team</p>",
+        "options": {}
+      },
+      "id": "e2f3a4b5-c6d7-4e8f-9a0b-1c2d3e4f5a6b",
+      "name": "Verzögerungs-Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2230, 400],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "resp-err-1",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "resp-err-2",
+              "name": "nachricht",
+              "value": "Bestellung ungültig - Validierung fehlgeschlagen",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f3a4b5c6-d7e8-4f9a-0b1c-2d3e4f5a6b7c",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [910, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"success\", \"bestellung_id\": $json.bestellung_id, \"rechnungsnummer\": $json.rechnungsnummer } }}",
+        "options": {}
+      },
+      "id": "a4b5c6d7-e8f9-4a0b-1c2d-3e4f5a6b7c8d",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2670, 300]
+    }
+  ],
+  "connections": {
+    "Neue Bestellung Webhook": {
+      "main": [
+        [
+          {
+            "node": "Bestelldaten extrahieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestelldaten extrahieren": {
+      "main": [
+        [
+          {
+            "node": "Bestellung valide?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestellung valide?": {
+      "main": [
+        [
+          {
+            "node": "Bestellung in DB speichern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestellung in DB speichern": {
+      "main": [
+        [
+          {
+            "node": "Produkte aufbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Produkte aufbereiten": {
+      "main": [
+        [
+          {
+            "node": "Lagerbestand prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lagerbestand prüfen": {
+      "main": [
+        [
+          {
+            "node": "Lager-Status aggregieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lager-Status aggregieren": {
+      "main": [
+        [
+          {
+            "node": "Alle Produkte verfügbar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alle Produkte verfügbar?": {
+      "main": [
+        [
+          {
+            "node": "Bestellung bestätigen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status: Wartend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestellung bestätigen": {
+      "main": [
+        [
+          {
+            "node": "Rechnung generieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rechnung generieren": {
+      "main": [
+        [
+          {
+            "node": "Bestätigungs-Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestätigungs-Email": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notification": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status: Wartend": {
+      "main": [
+        [
+          {
+            "node": "Verzögerungs-Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verzögerungs-Email": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["woche6", "praxisprojekt", "ecommerce"],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}

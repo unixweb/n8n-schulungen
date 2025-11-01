@@ -1,0 +1,229 @@
+{
+  "name": "Woche 5.3 - Error Workflow mit detailliertem Logging",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c7d8e9f0-a1b2-4c3d-4e5f-6a7b8c9d0e1f",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error-Informationen extrahieren\nconst execution = $input.first().json.execution;\nconst error = $input.first().json.error;\n\nconst errorDetails = {\n  workflow_id: execution.workflowId,\n  workflow_name: execution.workflowData?.name || 'Unbekannt',\n  execution_id: execution.id,\n  error_message: error.message,\n  error_node: error.node?.name || 'Unbekannt',\n  error_type: error.name || 'Error',\n  stack_trace: error.stack || '',\n  timestamp: new Date().toISOString(),\n  execution_mode: execution.mode,\n  severity: error.message.includes('critical') ? 'critical' : 'warning'\n};\n\nconsole.error('Workflow-Fehler aufgetreten:', errorDetails);\n\nreturn [{ json: errorDetails }];"
+      },
+      "id": "d8e9f0a1-b2c3-4d4e-5f6a-7b8c9d0e1f2a",
+      "name": "Fehlerdetails extrahieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO error_log (\n  workflow_id,\n  workflow_name,\n  execution_id,\n  error_message,\n  error_node,\n  error_type,\n  stack_trace,\n  severity,\n  created_at\n) VALUES (\n  '{{ $json.workflow_id }}',\n  '{{ $json.workflow_name }}',\n  '{{ $json.execution_id }}',\n  '{{ $json.error_message }}',\n  '{{ $json.error_node }}',\n  '{{ $json.error_type }}',\n  '{{ $json.stack_trace }}',\n  '{{ $json.severity }}',\n  NOW()\n)\nRETURNING *",
+        "options": {}
+      },
+      "id": "e9f0a1b2-c3d4-4e5f-6a7b-8c9d0e1f2a3b",
+      "name": "In Error-Log schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [690, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "severity-check",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "critical",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f0a1b2c3-d4e5-4f6a-7b8c-9d0e1f2a3b4c",
+      "name": "Kritischer Fehler?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C01234ABCDE",
+          "mode": "id"
+        },
+        "text": "=🚨 *KRITISCHER WORKFLOW-FEHLER*\n\n*Workflow:* {{ $json.workflow_name }}\n*Node:* {{ $json.error_node }}\n*Fehler:* {{ $json.error_message }}\n*Execution ID:* {{ $json.execution_id }}\n*Zeit:* {{ $json.timestamp }}\n\n_Sofortige Überprüfung erforderlich!_",
+        "otherOptions": {}
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Slack Alert (Kritisch)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [1130, 200],
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "1",
+          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@beispiel.de",
+        "toEmail": "admin@beispiel.de",
+        "subject": "=🚨 Kritischer Workflow-Fehler: {{ $json.workflow_name }}",
+        "emailType": "html",
+        "message": "=<h2>Kritischer Workflow-Fehler</h2>\n<p><strong>Workflow:</strong> {{ $json.workflow_name }}</p>\n<p><strong>Node:</strong> {{ $json.error_node }}</p>\n<p><strong>Fehlertyp:</strong> {{ $json.error_type }}</p>\n<p><strong>Fehlermeldung:</strong></p>\n<pre>{{ $json.error_message }}</pre>\n<p><strong>Execution ID:</strong> {{ $json.execution_id }}</p>\n<p><strong>Zeitstempel:</strong> {{ $json.timestamp }}</p>\n<hr>\n<p><strong>Stack Trace:</strong></p>\n<pre>{{ $json.stack_trace }}</pre>",
+        "options": {}
+      },
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "Email Alert (Kritisch)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1130, 100],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log-1",
+              "name": "status",
+              "value": "logged",
+              "type": "string"
+            },
+            {
+              "id": "log-2",
+              "name": "alert_gesendet",
+              "value": "={{ $json.severity === 'critical' ? 'ja' : 'nein' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "Log Status",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1350, 300]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fehlerdetails extrahieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fehlerdetails extrahieren": {
+      "main": [
+        [
+          {
+            "node": "In Error-Log schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In Error-Log schreiben": {
+      "main": [
+        [
+          {
+            "node": "Kritischer Fehler?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kritischer Fehler?": {
+      "main": [
+        [
+          {
+            "node": "Email Alert (Kritisch)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack Alert (Kritisch)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Alert (Kritisch)": {
+      "main": [
+        [
+          {
+            "node": "Log Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Alert (Kritisch)": {
+      "main": [
+        [
+          {
+            "node": "Log Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}

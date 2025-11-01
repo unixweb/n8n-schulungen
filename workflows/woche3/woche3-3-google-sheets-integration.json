@@ -1,0 +1,167 @@
+{
+  "name": "Woche 3.3 - Google Sheets Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e",
+      "name": "Täglich um 10 Uhr",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "latitude",
+              "value": "52.52"
+            },
+            {
+              "name": "longitude",
+              "value": "13.41"
+            },
+            {
+              "name": "current_weather",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f",
+      "name": "Wetterdaten abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "datum",
+              "value": "={{ $now.format('dd.MM.yyyy') }}"
+            },
+            {
+              "name": "uhrzeit",
+              "value": "={{ $now.format('HH:mm') }}"
+            },
+            {
+              "name": "stadt",
+              "value": "Berlin"
+            }
+          ],
+          "number": [
+            {
+              "name": "temperatur",
+              "value": "={{ $json.current_weather.temperature }}"
+            },
+            {
+              "name": "windgeschwindigkeit",
+              "value": "={{ $json.current_weather.windspeed }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d0e1f2a3-b4c5-4d6e-7f8a-9b0c1d2e3f4a",
+      "name": "Daten formatieren",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "IHRE_GOOGLE_SHEETS_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "datum": "={{ $json.datum }}",
+            "uhrzeit": "={{ $json.uhrzeit }}",
+            "stadt": "={{ $json.stadt }}",
+            "temperatur": "={{ $json.temperatur }}",
+            "windgeschwindigkeit": "={{ $json.windgeschwindigkeit }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+      "name": "In Google Sheets schreiben",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.2,
+      "position": [910, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Täglich um 10 Uhr": {
+      "main": [
+        [
+          {
+            "node": "Wetterdaten abrufen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wetterdaten abrufen": {
+      "main": [
+        [
+          {
+            "node": "Daten formatieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daten formatieren": {
+      "main": [
+        [
+          {
+            "node": "In Google Sheets schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}

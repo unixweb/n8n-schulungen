@@ -1,0 +1,90 @@
+{
+  "name": "Woche 2.3 - Code Node für Berechnungen",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e4f5a6b7-c8d9-4e0a-1b2c-3d4e5f6a7b8c",
+      "name": "When clicking \"Test workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "number": [
+            {
+              "name": "verkauf_1",
+              "value": 150
+            },
+            {
+              "name": "verkauf_2",
+              "value": 230
+            },
+            {
+              "name": "verkauf_3",
+              "value": 180
+            },
+            {
+              "name": "verkauf_4",
+              "value": 290
+            },
+            {
+              "name": "verkauf_5",
+              "value": 210
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5a6b7c8-d9e0-4a1b-2c3d-4e5f6a7b8c9d",
+      "name": "Verkaufszahlen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verkaufszahlen aus Input extrahieren\nconst verkaufsZahlen = [\n  $input.first().json.verkauf_1,\n  $input.first().json.verkauf_2,\n  $input.first().json.verkauf_3,\n  $input.first().json.verkauf_4,\n  $input.first().json.verkauf_5\n];\n\n// Berechnungen durchführen\nconst summe = verkaufsZahlen.reduce((acc, val) => acc + val, 0);\nconst durchschnitt = summe / verkaufsZahlen.length;\nconst maximum = Math.max(...verkaufsZahlen);\nconst minimum = Math.min(...verkaufsZahlen);\n\n// Sortierte Liste erstellen\nconst sortiert = [...verkaufsZahlen].sort((a, b) => b - a);\n\n// Ergebnis zurückgeben\nreturn [{\n  json: {\n    original_daten: verkaufsZahlen,\n    gesamtsumme: summe,\n    durchschnitt: Math.round(durchschnitt * 100) / 100,\n    hoechster_verkauf: maximum,\n    niedrigster_verkauf: minimum,\n    sortiert_absteigend: sortiert,\n    anzahl_verkauefe: verkaufsZahlen.length,\n    datum: new Date().toISOString().split('T')[0]\n  }\n}];"
+      },
+      "id": "a6b7c8d9-e0a1-4b2c-3d4e-5f6a7b8c9d0e",
+      "name": "Statistiken berechnen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    }
+  ],
+  "connections": {
+    "When clicking \"Test workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Verkaufszahlen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verkaufszahlen": {
+      "main": [
+        [
+          {
+            "node": "Statistiken berechnen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-15T10:00:00.000Z",
+  "versionId": "1"
+}
